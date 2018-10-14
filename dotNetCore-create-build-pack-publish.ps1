@@ -340,6 +340,7 @@ if ($zenPack) {
                     -ItemType Directory
             }
 
+            # zip new publish file
             Add-Type -Assembly System.IO.Compression.FileSystem
             [System.IO.Compression.ZipFile]::
                 CreateFromDirectory(
