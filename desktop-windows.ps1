@@ -2,9 +2,9 @@
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute `
     ('PSPossibleIncorrectComparisonWithNull','')]
 param (
-    [string]$scriptName = 'Desktop Windows - saves annd retrieves window state and positions for windows apps',
+    [string]$scriptName = 'Desktop Windows - saves and retrieves window state and positions for windows apps',
     [string]$scriptStyle = 'original', # original / task
-    [string]$scriptStatus = 'Research & Development',
+    [string]$scriptStatus = 'Research & Development, issue when having more extended screens',
     [string]$scriptDocumentation = 'https://superuser.com/questions/1324007/setting-window-size-and-position-in-powershell-5-and-6',
 
     [DateTime]$dateTimeStart = [System.DateTime]::UtcNow,
@@ -321,8 +321,8 @@ if ($zenRestore) {
                                     $handle, 
                                     $desktopWindow.Left,
                                     $desktopWindow.Top,
-                                    $desktopWindow.Right,
-                                    $desktopWindow.Bottom, 
+                                    $desktopWindow.Right - $desktopWindow.Left,
+                                    $desktopWindow.Bottom - $desktopWindow.Top, 
                                     $True
                                     )) ) {
        
