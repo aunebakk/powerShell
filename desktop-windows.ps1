@@ -1,32 +1,51 @@
-# & '.\zzz\documentation\Windows PowerShell Step by Step\desktop-windows.ps1' -doDevelopment
+<#
+.\desktop-windows.ps1 -zenSave -doEcho -doDevelopment -desktopWindowsFile:"ProjectZen.json"
+.\desktop-windows.ps1 -zenRestore -doEcho -doDevelopment -desktopWindowsFile:"ProjectZen.json"
+#>
 [Diagnostics.CodeAnalysis.SuppressMessageAttribute `
     ('PSPossibleIncorrectComparisonWithNull','')]
 param (
     [string]$scriptName = 'Desktop Windows - saves and retrieves window state and positions for windows apps',
     [string]$scriptStyle = 'original', # original / task
-    [string]$scriptStatus = 'Research & Development, issue when having more extended screens',
+    [string]$scriptStatus = '2018.10.15 Research & Development, issue when having several extended screens\r\n' `
+                            + '2021.02.13 Allow different setup files via -desktopWindowsFile which defaults to users home directory\r\n',
+                            + '2021.02.13 Known issue where two processes with the same name ends up in the same location... not sure how to deal with that\r\n',
     [string]$scriptDocumentation = 'https://superuser.com/questions/1324007/setting-window-size-and-position-in-powershell-5-and-6',
 
     [DateTime]$dateTimeStart = [System.DateTime]::UtcNow,
     [DateTime]$dateTimeStop = [System.DateTime]::UtcNow,
     [DateTime]$createdDateTime = '2018.10.15',
-    [DateTime]$updateDateTime = '2018.10.15',
+    [DateTime]$updateDateTime = '2021.02.13',
 
-    [switch]$doDevelopment = $false,
+    [switch]$doDevelopment = $true,
     [switch]$doTest = $false,
     [switch]$doStep = $false,
-    [switch]$doEcho = $true,
+    [switch]$doEcho = $false,
 
     [switch]$zenLocate = $false,
     [switch]$zenSave = $false,
     [switch]$zenRestore = $false,
-    [string]$desktopWindowsFile = $home + '\' + 'sql2x' + '\' + 'Scripts' + '\' + 'garbage' + '\' + 'desktop-windows.json',
+    [string]$desktopWindowsFile = "$home\Temp\desktop-windows.json",
 
     [switch]$rethrow = $false,
     [string]$comment = 'no comment',
     [switch]$sendMail = $false,
     [switch]$returnHtml = $false
 )
+##################################################################################################################
+$taskName = 'Parameter check'
+#region
+##################################################################################################################
+
+# Save / Restore file needs a directory, default to users home and temp
+if ((Split-Path($desktopWindowsFile)) -eq '') {
+    $desktopWindowsFile = "$home\Temp\$desktopWindowsFile"
+
+    $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + "Restore file override to: $desktopWindowsFile"
+    $htmlLog = $htmlLog + $taskLine + '<br>'
+    if ($doEcho) { Write-Host ( $taskLine ) }
+}
+
 ##################################################################################################################
 $taskName = 'types'
 #region
@@ -75,32 +94,6 @@ $taskName = 'locals'
 [string] $htmlLog = ''
 
 [DesktopWindow[]] $desktopWindows = $null
-#endregion
-##################################################################################################################
-$taskName = 'set startup location'
-#region
-##################################################################################################################
-try {
-    [string] $startupDirectory = ''
-    if ($doDevelopment) { 
-        [string] $startupDirectory = 'C:\SQL2XProjects' + '\' + 'sql2x' + '\' + 'Scripts'
-    } elseif ($doTest) {
-        [string] $startupDirectory = $home + '\' + 'sql2x' + '\' + 'Scripts'   
-    }
-    if ($startupDirectory -ne '') { 
-        # Set-Location $startupDirectory -ErrorAction:Stop
-    }
-} catch [Exception] {
-    if ($rethrow) {
-        Write-Host ($taskName + ' ' + 'Exception; ' + $_.Exception.Message)
-        throw [Exception] ('Failed to; ' + $taskName)
-    } else {
-        $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + ('Exception:' + ' ' + $taskName + ' ' + '[' +  $_.Exception.Message + ']' + ' ' + 'Line:[' + $_.InvocationInfo.ScriptLineNumber + ']')
-        $htmlLog = $htmlLog + $taskLine + '<br>'
-        if ($doEcho) { Write-Host ( $taskLine ) -ForegroundColor Red }
-        $doDevelopment = $false; $doTest = $true
-    }
-}
 #endregion
 ##################################################################################################################
 $taskName = 'start script:'
@@ -259,6 +252,15 @@ if ($zenSave) {
 
         if ($answer -ne 'no' -and ($doDevelopment -or $doTest)) { 
             # save desktop windows location
+            if (-Not (Test-Path(Split-Path($desktopWindowsFile)))) {
+
+                $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'Creating directory:' + ' ' + (Split-Path($desktopWindowsFile))
+                $htmlLog = $htmlLog + $taskLine + '<br>'
+                if ($doEcho) { Write-Host ( $taskLine ) }
+
+                New-Item (Split-Path($desktopWindowsFile)) -ItemType 'directory'
+            }
+
             ConvertTo-Json -InputObject $desktopWindows | Out-File $desktopWindowsFile -Encoding Ascii
         }
 
@@ -437,7 +439,6 @@ $taskName = 'cleanup'
 ##################################################################################################################
 if ($desktopWindowsFile) { try { Remove-Variable -Name desktopWindowsFile } catch {} }
 if ($desktopWindows) { try { Remove-Variable -Name desktopWindows } catch {} }
-if ($startupDirectory) { try { Remove-Variable -Name startupDirectory } catch {} }
 
 if ($mailAnyway) { try { Remove-Variable -Name mailAnyway } catch {} }
 if ($answer) { try { Remove-Variable -Name answer } catch {} }
