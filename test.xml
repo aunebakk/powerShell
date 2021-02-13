@@ -1,0 +1,114 @@
+[
+    {
+        "processName":  "ApplicationFrameHost",
+        "windowVisualState":  "Maximized",
+        "left":  -8,
+        "top":  -8,
+        "right":  1608,
+        "bottom":  868
+    },
+    {
+        "processName":  "BitComet",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  0,
+        "right":  0,
+        "bottom":  0
+    },
+    {
+        "processName":  "Calculator",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  1,
+        "right":  784,
+        "bottom":  501
+    },
+    {
+        "processName":  "chrome",
+        "windowVisualState":  "Normal",
+        "left":  -1830,
+        "top":  -600,
+        "right":  -230,
+        "bottom":  113
+    },
+    {
+        "processName":  "Code",
+        "windowVisualState":  "Normal",
+        "left":  -7,
+        "top":  -1088,
+        "right":  1929,
+        "bottom":  8
+    },
+    {
+        "processName":  "explorer",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  860,
+        "right":  1600,
+        "bottom":  900
+    },
+    {
+        "processName":  "LINE",
+        "windowVisualState":  "Normal",
+        "left":  2441,
+        "top":  -914,
+        "right":  3000,
+        "bottom":  -79
+    },
+    {
+        "processName":  "msedge",
+        "windowVisualState":  "Minimized",
+        "left":  -32000,
+        "top":  -32000,
+        "right":  -31840,
+        "bottom":  -31972
+    },
+    {
+        "processName":  "OUTLOOK",
+        "windowVisualState":  "Normal",
+        "left":  636,
+        "top":  -702,
+        "right":  1836,
+        "bottom":  -48
+    },
+    {
+        "processName":  "powershell",
+        "windowVisualState":  "Normal",
+        "left":  -8,
+        "top":  -8,
+        "right":  1608,
+        "bottom":  868
+    },
+    {
+        "processName":  "SystemSettings",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  8,
+        "right":  1600,
+        "bottom":  868
+    },
+    {
+        "processName":  "TextInputHost",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  0,
+        "right":  1600,
+        "bottom":  900
+    },
+    {
+        "processName":  "vncviewer",
+        "windowVisualState":  "Normal",
+        "left":  2097,
+        "top":  -893,
+        "right":  3697,
+        "bottom":  -33
+    },
+    {
+        "processName":  "WinStore.App",
+        "windowVisualState":  "N/A",
+        "left":  0,
+        "top":  1,
+        "right":  1024,
+        "bottom":  801
+    }
+]

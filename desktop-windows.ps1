@@ -20,6 +20,7 @@ param (
     [switch]$zenLocate = $false,
     [switch]$zenSave = $false,
     [switch]$zenRestore = $false,
+    [string]$desktopWindowsFile = $home + '\' + 'sql2x' + '\' + 'Scripts' + '\' + 'garbage' + '\' + 'desktop-windows.json',
 
     [switch]$rethrow = $false,
     [string]$comment = 'no comment',
@@ -74,7 +75,6 @@ $taskName = 'locals'
 [string] $htmlLog = ''
 
 [DesktopWindow[]] $desktopWindows = $null
-[string] $desktopWindowsFile = $home + '\' + 'sql2x' + '\' + 'Scripts' + '\' + 'garbage' + '\' + 'desktop-windows.xml'
 #endregion
 ##################################################################################################################
 $taskName = 'set startup location'
@@ -88,7 +88,7 @@ try {
         [string] $startupDirectory = $home + '\' + 'sql2x' + '\' + 'Scripts'   
     }
     if ($startupDirectory -ne '') { 
-        Set-Location $startupDirectory -ErrorAction:Stop
+        # Set-Location $startupDirectory -ErrorAction:Stop
     }
 } catch [Exception] {
     if ($rethrow) {
@@ -309,31 +309,35 @@ if ($zenRestore) {
                 $htmlLog = $htmlLog + $taskLine + '<br>'
                 if ($doEcho) { Write-Host ( $taskLine ) }
 
-                $process = (Get-Process -Name $desktopWindow.ProcessName -ErrorAction:SilentlyContinue)
-                if ($process -ne $null) {
-                    $handles = (Get-Process -Name $desktopWindow.ProcessName).MainWindowHandle
-                    foreach ( $handle in $handles ) {
-                        if ( $handle -eq [System.IntPtr]::Zero ) { Continue }
+                try {
+                    $process = (Get-Process -Name $desktopWindow.ProcessName -ErrorAction:SilentlyContinue)
+                    if ($process -ne $null) {
+                        $handles = (Get-Process -Name $desktopWindow.ProcessName).MainWindowHandle
+                        foreach ( $handle in $handles ) {
+                            if ( $handle -eq [System.IntPtr]::Zero ) { Continue }
 
-                        $rectangle = New-Object RECT
-                        if ([Window]::GetWindowRect($handle,[ref]$rectangle)) {
-                            if (!([Window]::MoveWindow(
-                                    $handle, 
-                                    $desktopWindow.Left,
-                                    $desktopWindow.Top,
-                                    $desktopWindow.Right - $desktopWindow.Left,
-                                    $desktopWindow.Bottom - $desktopWindow.Top, 
-                                    $True
-                                    )) ) {
-       
-                                # log
-                                $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':'
-                                    + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
-                                $htmlLog = $htmlLog + $taskLine + '<br>'
-                                if ($doEcho) { Write-Host ( $taskLine ) }
+                            $rectangle = New-Object RECT
+                            if ([Window]::GetWindowRect($handle,[ref]$rectangle)) {
+                                if (!([Window]::MoveWindow(
+                                        $handle, 
+                                        $desktopWindow.Left,
+                                        $desktopWindow.Top,
+                                        $desktopWindow.Right - $desktopWindow.Left,
+                                        $desktopWindow.Bottom - $desktopWindow.Top, 
+                                        $True
+                                        )) ) {
+
+                                    # log
+                                    $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':'
+                                        + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
+                                    $htmlLog = $htmlLog + $taskLine + '<br>'
+                                    if ($doEcho) { Write-Host ( $taskLine ) }
+                                }
                             }
                         }
                     }
+                } catch [Exception] {
+                    Write-Host ($taskName + ' ' + 'Exception; ' + $_.Exception.Message)
                 }
             }
         }
