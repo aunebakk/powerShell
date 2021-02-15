@@ -8,7 +8,7 @@ param (
     [string]$scriptName = 'Desktop Windows - saves and retrieves window state and positions for windows apps',
     [string]$scriptStyle = 'original', # original / task
     [string]$scriptStatus = '2018.10.15 Research & Development, issue when having several extended screens\r\n' `
-                            + '2021.02.13 Allow different setup files via -desktopWindowsFile which defaults to users home directory\r\n',
+                            + '2021.02.13 Allow different setup files via -desktopWindowsFile which defaults to users home directory\r\n' `
                             + '2021.02.13 Known issue where two processes with the same name ends up in the same location... not sure how to deal with that\r\n',
     [string]$scriptDocumentation = 'https://superuser.com/questions/1324007/setting-window-size-and-position-in-powershell-5-and-6',
 
