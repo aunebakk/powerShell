@@ -9,6 +9,7 @@ param (
     [string]$scriptStyle = 'original', # original / task
     [string]$scriptStatus = '2018.10.15 Research & Development, issue when having several extended screens\r\n' `
                             + '2021.02.13 Allow different setup files via -desktopWindowsFile which defaults to users home directory\r\n' `
+                            + '2021.02.13 issue with minimized window that gets minus locations\r\n' `
                             + '2021.02.13 Known issue where two processes with the same name ends up in the same location... not sure how to deal with that\r\n',
     [string]$scriptDocumentation = 'https://superuser.com/questions/1324007/setting-window-size-and-position-in-powershell-5-and-6',
 
@@ -57,19 +58,38 @@ Try{
         using System;
         using System.Runtime.InteropServices;
         public class Window {
-        [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
-        public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+            [DllImport("user32.dll")]
+            [return: MarshalAs(UnmanagedType.Bool)]
+            public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
-        [DllImport("User32.dll")]
-        public extern static bool MoveWindow(IntPtr handle, int x, int y, int width, int height, bool redraw);
+            [DllImport("User32.dll")]
+            public extern static bool MoveWindow(IntPtr handle, int x, int y, int width, int height, bool redraw);
+
+            [DllImport("User32.dll")]
+            public extern static bool ShowWindow(IntPtr handle, SW nCmdShow);
+        }
+        public enum SW
+        {
+            HIDE               = 0,
+            SHOW_NORMAL        = 1,
+            SHOW_MINIMIZED     = 2,
+            MAXIMIZE           = 3,
+            SHOW_MAXIMIZED     = 3,
+            SHOW_NO_ACTIVE     = 4,
+            SHOW               = 5,
+            MINIMIZE           = 6,
+            SHOW_MIN_NO_ACTIVE = 7,
+            SHOW_NA            = 8,
+            RESTORE            = 9,
+            SHOW_DEFAULT       = 10,
+            FORCE_MINIMIZE     = 11
         }
         public struct RECT
         {
-        public int Left;        // x position of upper-left corner
-        public int Top;         // y position of upper-left corner
-        public int Right;       // x position of lower-right corner
-        public int Bottom;      // y position of lower-right corner
+            public int Left;        // x position of upper-left corner
+            public int Top;         // y position of upper-left corner
+            public int Right;       // x position of lower-right corner
+            public int Bottom;      // y position of lower-right corner
         }
 "@
 }
@@ -78,10 +98,10 @@ Add-Type -AssemblyName UIAutomationClient
 class DesktopWindow {
     [System.String]$processName
     [System.String]$windowVisualState
-    [int]$left;        # x position of upper-left corner
-    [int]$top;         # y position of upper-left corner
-    [int]$right;       # x position of lower-right corner
-    [int]$bottom;      # y position of lower-right corner
+    [System.Int32]$left;        # x position of upper-left corner
+    [System.Int32]$top;         # y position of upper-left corner
+    [System.Int32]$right;       # x position of lower-right corner
+    [System.Int32]$bottom;      # y position of lower-right corner
 }
 #endregion
 ##################################################################################################################
@@ -319,7 +339,39 @@ if ($zenRestore) {
                             if ( $handle -eq [System.IntPtr]::Zero ) { Continue }
 
                             $rectangle = New-Object RECT
-                            if ([Window]::GetWindowRect($handle,[ref]$rectangle)) {
+                            if ([Window]::GetWindowRect($handle, [ref]$rectangle)) {
+
+                                $windowState = New-Object SW
+                                Switch ($desktopWindow.windowVisualState) {
+                                    'Normal'    { 
+                                                $windowState = [SW]::SHOW_NORMAL;
+                                                break;
+                                                }
+                                    'Maximized' {
+                                                $windowState = [SW]::SHOW_MAXIMIZED;
+                                                break;
+                                                }
+                                    'Minimized' {
+                                                $windowState = [SW]::SHOW_MINIMIZED;
+                                                break;
+                                                }
+                                }
+
+                                # set window state
+                                if ($windowState -ne $null) {
+                                    if (!([Window]::ShowWindow(
+                                            $handle,
+                                            $windowState
+                                            )) ) {
+
+                                        # log
+                                        $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to change window state to ' + $desktopWindow.windowVisualState + ':' `
+                                            + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
+                                        $htmlLog = $htmlLog + $taskLine + '<br>'
+                                        if ($doEcho) { Write-Host ( $taskLine ) }
+                                    }
+                                }
+
                                 if (!([Window]::MoveWindow(
                                         $handle, 
                                         $desktopWindow.Left,
@@ -330,7 +382,7 @@ if ($zenRestore) {
                                         )) ) {
 
                                     # log
-                                    $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':'
+                                    $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':' `
                                         + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
                                     $htmlLog = $htmlLog + $taskLine + '<br>'
                                     if ($doEcho) { Write-Host ( $taskLine ) }
@@ -339,7 +391,7 @@ if ($zenRestore) {
                         }
                     }
                 } catch [Exception] {
-                    Write-Host ($taskName + ' ' + 'Exception; ' + $_.Exception.Message)
+                    Write-Host ($taskName + ' ' + 'Exception 2; ' + $_.Exception.Message)
                 }
             }
         }
