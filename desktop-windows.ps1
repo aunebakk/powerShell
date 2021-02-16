@@ -10,7 +10,8 @@ param (
     [string]$scriptStatus = '2018.10.15 Research & Development, issue when having several extended screens\r\n' `
                             + '2021.02.13 Allow different setup files via -desktopWindowsFile which defaults to users home directory\r\n' `
                             + '2021.02.13 issue with minimized window that gets minus locations\r\n' `
-                            + '2021.02.13 Known issue where two processes with the same name ends up in the same location... not sure how to deal with that\r\n',
+                            + '2021.02.13 Known issue where two processes with the same name ends up in the same location... not sure how to deal with that\r\n' `
+                            + '2021.02.16   SemiFixed ( look at comments ), but does not work Applications like VS Code because of Electrons window handling style',
     [string]$scriptDocumentation = 'https://superuser.com/questions/1324007/setting-window-size-and-position-in-powershell-5-and-6',
 
     [DateTime]$dateTimeStart = [System.DateTime]::UtcNow,
@@ -96,12 +97,13 @@ Try{
 
 Add-Type -AssemblyName UIAutomationClient
 class DesktopWindow {
-    [System.String]$processName
-    [System.String]$windowVisualState
-    [System.Int32]$left;        # x position of upper-left corner
-    [System.Int32]$top;         # y position of upper-left corner
-    [System.Int32]$right;       # x position of lower-right corner
-    [System.Int32]$bottom;      # y position of lower-right corner
+    [System.String]$processName;
+    [System.Int32]$processNumber;       # instance count when more than one process with the same name, not process id
+    [System.String]$windowVisualState;
+    [System.Int32]$left;                # x position of upper-left corner
+    [System.Int32]$top;                 # y position of upper-left corner
+    [System.Int32]$right;               # x position of lower-right corner
+    [System.Int32]$bottom;              # y position of lower-right corner
 }
 #endregion
 ##################################################################################################################
@@ -187,18 +189,29 @@ if ($zenLocate -or ($zenSave)) {
             $processList = `
                 Get-Process | Where-Object { $_.MainWindowHandle -ne 0 }
 
-            $processList | ForEach-Object {
+            [string] $processNameLast = ''
+            [System.Int32] $processNumber = 0
 
+            $processList | ForEach-Object {
                 # process information
                 [int] $processId = $_.Id
                 [System.ComponentModel.Component] $process = `
                     Get-Process | Where-Object { $_.Id -eq $processId } | Select-Object -First 1
 
+                # save last process name so we can keep track of equal processes
+                if ($processNameLast -eq $process.ProcessName) {
+                    $processNumber++
+                } else {
+                    $processNameLast = $process.ProcessName
+                    $processNumber = 0;
+                }
+
                 # new desktop window object
                 $desktopWindow = New-Object DesktopWindow
                 $desktopWindow.processName = $process.ProcessName
+                $desktopWindow.processNumber = $processNumber
 
-                # visual state of process
+                # visual state of process main window
                 try {
                     $actionElement = [System.Windows.Automation.AutomationElement]::FromHandle($process.MainWindowHandle)
                     if ($actionElement -ne $null) {
@@ -227,14 +240,15 @@ if ($zenLocate -or ($zenSave)) {
                     }
                 }
 
+                # add to collection
                 $desktopWindows += $desktopWindow
             }
 
             if ($doEcho) {
                 # host window locations
-                Clear-Host
+                # Clear-Host
                 foreach ( $desktopWindow in $desktopWindows ) {
-                    Write-Host ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
+                    Write-Host ($desktopWindow.ProcessName + ' ' + $desktopWindow.ProcessNumber + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
                 }
             }
         }
@@ -332,39 +346,57 @@ if ($zenRestore) {
                 if ($doEcho) { Write-Host ( $taskLine ) }
 
                 try {
+                    # try to find the windows process
+                    # notice that there is no way to distinguish between processes with the same name, 
+                    #   so these windows will end up on top of each other
+                    # todo: cycle through equal windows to at least get different coordinates to prevent them from ending up on top of each other
                     $process = (Get-Process -Name $desktopWindow.ProcessName -ErrorAction:SilentlyContinue)
                     if ($process -ne $null) {
+                        # try to find window handle
                         $handles = (Get-Process -Name $desktopWindow.ProcessName).MainWindowHandle
+                        [System.Int32] $processNumber = -1
                         foreach ( $handle in $handles ) {
+
+                            # skip entries with no window handle
                             if ( $handle -eq [System.IntPtr]::Zero ) { Continue }
+
+                            # in cases with multiple process of same name, skip until number count matches 
+                            #  .. this might still be the wrong window but at least windows to not overlay
+                            $processNumber++
+                            if ($processNumber -ne $desktopWindow.processNumber) { Continue }
 
                             $rectangle = New-Object RECT
                             if ([Window]::GetWindowRect($handle, [ref]$rectangle)) {
 
+                                # figure out internal windows api state
                                 $windowState = New-Object SW
                                 Switch ($desktopWindow.windowVisualState) {
                                     'Normal'    { 
-                                                $windowState = [SW]::SHOW_NORMAL;
-                                                break;
+                                                    $windowState = [SW]::SHOW_NORMAL;
+                                                    break;
                                                 }
                                     'Maximized' {
-                                                $windowState = [SW]::SHOW_MAXIMIZED;
-                                                break;
+                                                    $windowState = [SW]::SHOW_MAXIMIZED;
+                                                    break;
                                                 }
                                     'Minimized' {
-                                                $windowState = [SW]::SHOW_MINIMIZED;
-                                                break;
+                                                    $windowState = [SW]::SHOW_MINIMIZED;
+                                                    break;
+                                                }
+                                    default     { 
+                                                    $windowState = [SW]::SHOW_NA
+                                                    break;
                                                 }
                                 }
 
                                 # set window state
-                                if ($windowState -ne $null) {
+                                if ($windowState -ne [SW]::SHOW_NA) {
                                     if (!([Window]::ShowWindow(
                                             $handle,
                                             $windowState
                                             )) ) {
 
-                                        # log
+                                        # log when setting window state failed
                                         $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to change window state to ' + $desktopWindow.windowVisualState + ':' `
                                             + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
                                         $htmlLog = $htmlLog + $taskLine + '<br>'
@@ -372,7 +404,9 @@ if ($zenRestore) {
                                     }
                                 }
 
-                                if (!([Window]::MoveWindow(
+                                # move window if in a 'normal' state
+                                if ($windowState -eq [SW]::SHOW_NORMAL) {
+                                    if (!([Window]::MoveWindow(
                                         $handle, 
                                         $desktopWindow.Left,
                                         $desktopWindow.Top,
@@ -381,11 +415,12 @@ if ($zenRestore) {
                                         $True
                                         )) ) {
 
-                                    # log
-                                    $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':' `
-                                        + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
-                                    $htmlLog = $htmlLog + $taskLine + '<br>'
-                                    if ($doEcho) { Write-Host ( $taskLine ) }
+                                        # log when move fails
+                                        $taskLine = [System.DateTime]::UtcNow.ToString() + ' ' + 'failed to move app' + ':' `
+                                            + ' ' + ($desktopWindow.ProcessName + ' ' + $desktopWindow.windowVisualState + ' ' + $desktopWindow.Left + ' ' + $desktopWindow.Right + ' ' + $desktopWindow.Top + ' ' + $desktopWindow.Bottom)
+                                        $htmlLog = $htmlLog + $taskLine + '<br>'
+                                        if ($doEcho) { Write-Host ( $taskLine ) }
+                                    }
                                 }
                             }
                         }
@@ -444,7 +479,7 @@ try {
         $emailMessage = New-Object System.Net.Mail.MailMessage
         $emailMessage.From = 'xxx'
         $emailMessage.To.Add('xxx')
-        $emailMessage.Subject = ($env:computername + ' : ' + $MyInvocation.MyCommand.Name)
+        $emailMessage.Subject = ($env:ComputerName + ' : ' + $MyInvocation.MyCommand.Name)
         $emailMessage.Body = $htmlLog
         $emailMessage.IsBodyHtml = $true
         $emailMessage.BodyEncoding = ([System.Text.UTF8Encoding]::UTF8)
